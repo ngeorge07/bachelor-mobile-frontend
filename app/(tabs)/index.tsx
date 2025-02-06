@@ -1,74 +1,172 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import {
+  TextInput,
+  View,
+  FlatList,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { useNavigation, useIsFocused } from "@react-navigation/native";
+import { matchSorter } from "match-sorter";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+const HOME_ACTIONS = {
+  SET_QUERY: "SET_QUERY",
+};
 
-export default function HomeScreen() {
+const resultsListItemStyle = {
+  paddingVertical: 10,
+  paddingLeft: 20,
+  paddingRight: 10,
+};
+
+function StationResults({
+  query,
+  allStations,
+  loading,
+}: {
+  query: string;
+  allStations: any[];
+  loading: boolean;
+}) {
+  const navigation = useNavigation();
+
+  const results =
+    query.length > 0
+      ? matchSorter(allStations, query, { keys: ["name"] })
+      : matchSorter(allStations, "", { keys: ["name"] });
+
+  if (loading) {
+    return <ActivityIndicator size="large" color="#0000ff" />;
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <FlatList
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      style={{ flex: 1 }}
+      data={results.slice(0, 20)} // Show only the first 20 results for performance
+      ListEmptyComponent={
+        query.length > 0 && allStations.length === 0 ? (
+          <Text style={{ color: "grey", fontSize: 20 }}>No results...</Text>
+        ) : null
+      }
+      renderItem={({ item }) => (
+        <TouchableOpacity
+          key={item.gtfsId}
+          style={[
+            resultsListItemStyle,
+            {
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            },
+          ]}
+          onPress={function () {
+            // Go to the default screen for this station
+            navigation.navigate("Station", {
+              stationId: item.gtfsId,
+              stationName: item.name,
+            });
+          }}
+        >
+          <Text style={{ fontSize: 20, color: "#000" }}>{item.name}</Text>
+        </TouchableOpacity>
+      )}
+    />
   );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+export default function HomeScreen() {
+  const inputRef = React.useRef<TextInput | null>(null);
+  const isScreenFocused = useIsFocused();
+  const [allStations, setAllStations] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  console.log(process.env.EXPO_PUBLIC_EXAM_APP_IP);
+
+  // Fetch stations from API
+  useEffect(() => {
+    async function fetchStations() {
+      try {
+        const response = await axios.get(
+          `http://${process.env.EXPO_PUBLIC_EXAM_APP_IP}:3000/api/stations/`,
+        );
+        setAllStations(response.data);
+      } catch (error) {
+        console.error("Error fetching stations:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchStations();
+  }, []);
+
+  // Handle search input
+  const [{ query }, dispatch] = React.useReducer(
+    function (state, action) {
+      switch (action.type) {
+        case HOME_ACTIONS.SET_QUERY:
+          return { ...state, query: action.payload };
+        default:
+          return state;
+      }
+    },
+    { query: "" },
+  );
+
+  // Remove search query when the screen is blurred
+  React.useEffect(() => {
+    if (!isScreenFocused) {
+      dispatch({ type: HOME_ACTIONS.SET_QUERY, payload: "" });
+    }
+    if (isScreenFocused) {
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [isScreenFocused]);
+
+  return (
+    <View style={{ backgroundColor: "#fff", flexGrow: 1 }}>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          borderWidth: 1,
+          borderColor: "rgba(0, 0, 0, .1)",
+        }}
+      >
+        <Feather
+          name="search"
+          color="#000"
+          size={25}
+          style={{ paddingLeft: 20, paddingVertical: 15 }}
+        />
+        <TextInput
+          ref={inputRef}
+          autoCorrect={false}
+          placeholder="Search station"
+          value={query}
+          clearButtonMode="always"
+          style={{
+            fontSize: 22,
+            paddingVertical: 15,
+            paddingLeft: 10,
+            flexGrow: 1,
+          }}
+          onChangeText={(text) =>
+            dispatch({ type: HOME_ACTIONS.SET_QUERY, payload: text })
+          }
+        />
+      </View>
+      <View style={{ flexGrow: 1, backgroundColor: "#fff" }}>
+        <StationResults
+          query={query}
+          allStations={allStations}
+          loading={loading}
+        />
+      </View>
+    </View>
+  );
+}
