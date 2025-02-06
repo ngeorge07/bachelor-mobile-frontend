@@ -151,7 +151,12 @@ export default function StationScreen({
                 {
                   flexDirection: "row",
                   alignItems: "center",
-                  backgroundColor: index % 2 !== 0 ? "#D9D9D9" : "#fff",
+                  backgroundColor:
+                    item.remarks.length > 0
+                      ? "#FFC72C"
+                      : index % 2 !== 0
+                      ? "#D9D9D9"
+                      : "#fff",
                 },
               ]}
               onPress={() => {
