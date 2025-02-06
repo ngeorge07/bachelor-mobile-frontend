@@ -83,6 +83,7 @@ export default function HomeScreen() {
   const isScreenFocused = useIsFocused();
   const [allStations, setAllStations] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
   console.log(process.env.EXPO_PUBLIC_EXAM_APP_IP);
 
   // Fetch stations from API
