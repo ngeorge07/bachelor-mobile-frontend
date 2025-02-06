@@ -44,7 +44,6 @@ function StationResults({
 
   return (
     <FlatList
-      keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
       style={{ flex: 1 }}
       data={results.slice(0, 20)} // Show only the first 20 results for performance
